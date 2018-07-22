@@ -1,189 +1,113 @@
-require("dotenv").config();
-
-//-------------------VARIABLES----------------------------------------------------
-
-//Loading modules
-var Twitter = require('twitter');
-var spotify = require('spotify');
-var request = require('request');
-var fs = require('fs');
 var keys = require("./keys.js");
-var tweetsArray = [];
-var inputCommand = process.argv[2];
-var commandParam = process.argv[3];
-var defaultMovie = "Mr Nobody";
-var defaultSong = "Radioactive";
 
+var request = require('request');
+var Twitter = require('twitter');
+var Spotify = require('node-spotify-api');
+var fs = require('fs');
+var client = new Twitter(keys.twitterKeys);
+var input = process.argv;
+var action = input[2];
+var inputs = input[3];
 
+switch (action) {
+	case "my-tweets":
+	twitter(inputs);
+	break;
 
-var twitterKeys = keys.twitterKeys;
-var tmdbKey = keys.tmdbKey;
+	case "spotify-this-song":
+	spotify(inputs);
+	break;
 
-var client = new Twitter({
-  consumer_key: twitterKeys.consumer_key,
-  consumer_secret: twitterKeys.consumer_secret,
-  access_token_key: twitterKeys.access_token_key,
-  access_token_secret: twitterKeys.access_token_secret
-});
+	case "movie-this":
+	movie(inputs);
+	break;
 
+	case "do-what-it-says":
+	doit();
+	break;
+};
 
-
-//-----------------------FUNCTIONS-----------------------------------------------
-
-//This function processes the input commands
-function processCommands(command, commandParam){
-
-	//console.log(commandParam);
-
-	switch(command){
-
-	case 'my-tweets':
-		getMyTweets(); break;
-	case 'spotify-this-song':
-		//If user has not specified a song , use default
-		if(commandParam === undefined){
-			commandParam = defaultSong;
-		}     
-		spotifyThis(commandParam); break;
-	case 'movie-this':
-		//If user has not specified a movie Name , use default
-		if(commandParam === undefined){
-			commandParam = defaultMovie;
-		}    
-		movieThis(commandParam); break;
-	case 'do-what-it-says':
-		doWhatItSays(); break;
-	default: 
-		console.log("Invalid command. Please type any of the following commnds: my-tweets spotify-this-song movie-this or do-what-it-says");
-}
-
-
-}
-
-function getMyTweets(){
-
-	var params = {screen_name: 'JohnSmi70301010', count: 20, exclude_replies:true, trim_user:true};
+function twitter(inputs) {
+	var params = {screen_name: inputs, count: 20};
+	
 		client.get('statuses/user_timeline', params, function(error, tweets, response) {
-				if (!error) {
-					//console.log(tweets);
-					tweetsArray = tweets;
-
-					for(i=0; i<tweetsArray.length; i++){
-						console.log("Created at: " + tweetsArray[i].created_at);
-						console.log("Text: " + tweetsArray[i].text);
-						console.log('--------------------------------------');
-					}
+			if (!error) {
+				for (i = 0; i < tweets.length; i ++){
+					console.log("Tweet: " + "'" + tweets[i].text + "'" + " Created At: " + tweets[i].created_at);
 				}
-				else{
-					console.log(error);
-				}
-	});
+			} else {
+				console.log(error);
+			}
+		});
 
 }
 
-function spotifyThis(song){
+function spotify(inputs) {
 
-	//If user has not specified a song , default to "Radioactive" imagine dragons
-	if(song === ""){
-		song = "Radioactive";
-	}
+	var spotify = new Spotify(keys.spotifyKeys);
+		if (!inputs){
+        	inputs = 'The Sign';
+    	}
+		spotify.search({ type: 'track', query: inputs }, function(err, data) {
+			if (err){
+	            console.log('Error occurred: ' + err);
+	            return;
+	        }
 
-	spotify.search({ type: 'track', query: song}, function(err, data) {
-    if (err) {
-        console.log('Error occurred: ' + err);
-        return;
-    }
-
-    var song = data.tracks.items[0];
-    console.log("------Artists-----");
-    for(i=0; i<song.artists.length; i++){
-    	console.log(song.artists[i].name);
-    }
-
-    console.log("------Song Name-----");
-    console.log(song.name);
-
-	console.log("-------Preview Link-----");
-    console.log(song.preview_url);
-
-    console.log("-------Album-----");
-    console.log(song.album.name);
-
-	});
-
-}
-
-function movieThis(movieName){
-
-	console.log(movieName);
-
-	request("https://api.themoviedb.org/3/search/movie?api_key=" + tmdbKey + "&query=" + movieName, function(error, response, body) {
-
-  	// If there were no errors and the response code was 200 (i.e. the request was successful)...
-  	if (!error && response.statusCode === 200) {
-
-	    //console.log(JSON.parse(body));
-	    
-	    //Get the Movie ID
-	    var movieID =  JSON.parse(body).results[0].id;
-	    //console.log(movieID);
-
-	    //Create new query using the movie ID
-	    var queryURL = "https://api.themoviedb.org/3/movie/" + movieID + "?api_key=" + tmdbKey + "&append_to_response=credits,releases";
-
-	    request(queryURL, function(error, response, body) {
-	    	var movieObj = JSON.parse(body);
-
-	    	console.log("--------Title-----------");
-	    	console.log(movieObj.original_title);
-
-	    	console.log("--------Year -----------");
-	    	console.log(movieObj.release_date.substring(0,4));
-
-	   		console.log("--------Rating-----------");
-	   		console.log(movieObj.releases.countries[0].certification);
-
-	   		console.log("--------Country Produced-----------");
-	   		for(i=0, j = movieObj.production_countries.length; i<j; i++){
-	   			console.log(movieObj.production_countries[i].name);
-	   		}
-	   		console.log("--------Languages-----------");
-	   		for(i=0, j = movieObj.spoken_languages.length; i<j; i++){
-	   			console.log(movieObj.spoken_languages[i].name);
-	   		}
-	   		console.log("--------Plot----------------");
-	   		console.log(movieObj.overview);
-
-	   		console.log("--------Actors-----------");
-	   		for(i=0, j = movieObj.credits.cast.length; i<j; i++){
-	   			console.log(movieObj.credits.cast[i].name);
-	   		}
-	    	
-	    });
-
-
-  	}else{
-  		console.log(error);
-  	}
-
+	        var songInfo = data.tracks.items;
+	        console.log("Artist(s): " + songInfo[0].artists[0].name);
+	        console.log("Song Name: " + songInfo[0].name);
+	        console.log("Preview Link: " + songInfo[0].preview_url);
+	        console.log("Album: " + songInfo[0].album.name);
 	});
 }
 
-function doWhatItSays(){
-	fs.readFile('random.txt', 'utf8', function(err, data){
 
-		if (err){ 
-			return console.log(err);
+function movie(inputs) {
+
+	var queryUrl = "https://www.omdbapi.com/?t=" + inputs + "&y=&plot=short&apikey=trilogy";
+
+	request(queryUrl, function(error, response, body) {
+		if (!inputs){
+        	inputs = 'Mr Nobody';
+    	}
+		if (!error && response.statusCode === 200) {
+
+		    console.log("Title: " + JSON.parse(body).Title);
+		    console.log("Release Year: " + JSON.parse(body).Year);
+		    console.log("IMDB Rating: " + JSON.parse(body).imdbRating);
+		    console.log("Rotten Tomatoes Rating: " + JSON.parse(body).Ratings[1].Value);
+		    console.log("Country: " + JSON.parse(body).Country);
+		    console.log("Language: " + JSON.parse(body).Language);
+		    console.log("Plot: " + JSON.parse(body).Plot);
+		    console.log("Actors: " + JSON.parse(body).Actors);
 		}
-
-		var dataArr = data.split(',');
-
-		processCommands(dataArr[0], dataArr[1]);
 	});
-}
+};
 
+function doit() {
+	fs.readFile('random.txt', "utf8", function(error, data){
 
+		if (error) {
+    		return console.log(error);
+  		}
 
-//-------------------------MAIN PROCESS-------------------------------------------
+		// Then split it by commas (to make it more readable)
+		var dataArr = data.split(",");
 
-processCommands(inputCommand, commandParam);
+		// Each command is represented. Because of the format in the txt file, remove the quotes to run these commands. 
+		if (dataArr[0] === "spotify-this-song") {
+			var songcheck = dataArr[1].slice(1, -1);
+			spotify(songcheck);
+		} else if (dataArr[0] === "my-tweets") {
+			var tweetname = dataArr[1].slice(1, -1);
+			twitter(tweetname);
+		} else if(dataArr[0] === "movie-this") {
+			var movie_name = dataArr[1].slice(1, -1);
+			movie(movie_name);
+		} 
+		
+  	});
+
+};
+
